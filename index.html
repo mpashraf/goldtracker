@@ -90,6 +90,7 @@
   body:not(.signed-out) #view-login{display:none!important}
   .login-wrap{max-width:420px;margin:24px auto 0}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style id="paytm-theme">
   /* ---------- Paytm-style theme ---------- */
   :root{
@@ -375,9 +376,11 @@
       <label>Phone <input name="phone" type="tel" inputmode="tel" placeholder="Optional"></label>
       <label>Item / purity <input name="item" placeholder="e.g. 22K chain, old bangle, coin"></label>
       <div class="row2">
-        <label>Grams <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" required></label>
-        <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" required></label>
+        <label>Gross weight (g) <input name="gross" type="number" step="0.001" min="0" inputmode="decimal" required></label>
+        <label>Mud loss (g) <input name="mud" type="number" step="0.001" min="0" inputmode="decimal" placeholder="0"></label>
       </div>
+      <div class="calc"><span>Net weight (after mud loss)</span><strong data-net>0.000 g</strong></div>
+      <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" required></label>
       <div class="calc"><span>Total paid</span><strong data-total>₹0.00</strong></div>
       <label>Notes <input name="notes" placeholder="Optional"></label>
       <button class="btn gold" type="submit">Save purchase</button>
@@ -433,6 +436,7 @@
       </div>
       <div class="calc"><span>Filtered grams</span><strong id="fGrams">0 g</strong></div>
       <div class="calc"><span>Filtered profit</span><strong id="fProfit">₹0</strong></div>
+      <button class="btn gold" id="pdfBtn" style="margin-top:4px"><svg class="ic"><use href="#i-download"/></svg> Download PDF</button>
     </div>
     <div class="card" id="dailyBox"></div>
     <div class="card" id="recordsList"></div>
@@ -497,6 +501,7 @@ window.onRemoteEntries = list => {
 let db = { entries: [] };
 let stockLots = [];     // remaining FIFO lots after replay
 let stockGrams = 0;
+let lastFiltered = [];
 
 /* ============================================================
    HELPERS
@@ -622,6 +627,7 @@ function renderRecords() {
     .filter(e => (type === 'all' || e.type === type) && e.date >= from && e.date <= to)
     .sort((a, b) => b.date.localeCompare(a.date) || b.ts - a.ts);
 
+  lastFiltered = list;
   $('#fGrams').textContent = grams(list.reduce((s, e) => s + e.grams, 0));
   const p = list.filter(e => e.type === 'sell').reduce((s, e) => s + e.profit, 0);
   $('#fProfit').textContent = money(p);
@@ -636,7 +642,7 @@ function renderRecords() {
         <span style="font-size:12px;color:var(--muted)">${esc(e.date)}</span>
       </div>
       <div class="entry-meta">
-        ${esc(e.item) ? esc(e.item) + ' · ' : ''}${grams(e.grams)} @ ${money(e.rate)}/g = <strong>${money(e.total)}</strong>
+        ${esc(e.item) ? esc(e.item) + ' · ' : ''}${weightText(e)} @ ${money(e.rate)}/g = <strong>${money(e.total)}</strong>
         ${e.type === 'sell' ? `<br>Cost ${money(e.cost)} · Profit <strong class="${e.profit >= 0 ? 'pos' : 'neg'}">${money(e.profit)}</strong>` : ''}
         ${e.type === 'sell' && e.shortfall > 0 ? `<br><span class="neg"><svg class="ic sm"><use href="#i-alert"/></svg> Short ${grams(e.shortfall)} (not in stock when sold)</span>` : ''}
         ${e.phone ? `<br><svg class="ic sm"><use href="#i-phone"/></svg> ${esc(e.phone)}` : ''}
@@ -672,13 +678,13 @@ function renderDaily(list) {
           <span class="${profit >= 0 ? 'pos' : 'neg'}" style="font-size:13px">Profit ${money(profit)}</span>
         </div>
         <table style="margin-top:6px;font-size:13px">
-          <tr><th>Time</th><th>Type</th><th>Party</th><th class="r">Grams</th><th class="r">Rate</th><th class="r">Amount</th></tr>
+          <tr><th>Time</th><th>Type</th><th>Party</th><th class="r">Net g</th><th class="r">Rate</th><th class="r">Amount</th></tr>
           ${items.map(e => `
             <tr>
               <td>${new Date(e.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
               <td><span class="badge ${e.type}">${e.type === 'buy' ? 'BUY' : 'SELL'}</span></td>
               <td>${esc(e.party)}</td>
-              <td class="r">${Number(e.grams).toFixed(3)}</td>
+              <td class="r">${Number(e.grams).toFixed(3)}${e.type === 'buy' && e.mudLoss > 0 ? `<div style="font-size:11px;color:var(--muted)">gross ${Number(e.gross).toFixed(3)}</div>` : ''}</td>
               <td class="r">${money(e.rate)}</td>
               <td class="r">${money(e.total)}</td>
             </tr>`).join('')}
@@ -692,10 +698,26 @@ function renderDaily(list) {
   box.innerHTML = '<h2>Daily history</h2>' + days;
 }
 
+// Net weight = gross - mud loss (sell forms have no mud loss)
+function netWeight(form) {
+  const gross = form.elements.gross ? parseFloat(form.elements.gross.value) || 0 : parseFloat(form.elements.grams.value) || 0;
+  const mud = form.elements.mud ? parseFloat(form.elements.mud.value) || 0 : 0;
+  return Math.max(0, Math.round((gross - mud) * 1000) / 1000);
+}
+
 function updateTotal(form) {
-  const g = parseFloat(form.elements.grams.value) || 0;
+  const net = netWeight(form);
   const r = parseFloat(form.elements.rate.value) || 0;
-  form.querySelector('[data-total]').textContent = money(g * r);
+  form.querySelector('[data-total]').textContent = money(net * r);
+  const n = form.querySelector('[data-net]');
+  if (n) n.textContent = grams(net);
+}
+
+// Text for records: shows gross, mud loss and net for purchases with mud loss
+function weightText(e) {
+  return e.type === 'buy' && e.mudLoss > 0
+    ? `Gross ${grams(e.gross)} − Mud ${grams(e.mudLoss)} = Net ${grams(e.grams)}`
+    : grams(e.grams);
 }
 
 function updateSellPreview() {
@@ -721,8 +743,14 @@ async function handleSubmit(e, type) {
   e.preventDefault();
   const f = e.target;
   const d = Object.fromEntries(new FormData(f));
-  const g = parseFloat(d.grams), r = parseFloat(d.rate);
+  const isBuy = type === 'buy';
+  const gross = isBuy ? parseFloat(d.gross) : parseFloat(d.grams);
+  const mud = isBuy ? (parseFloat(d.mud) || 0) : 0;
+  const g = Math.max(0, Math.round((gross - mud) * 1000) / 1000);
+  const r = parseFloat(d.rate);
 
+  if (!(gross > 0)) return toast('Enter valid weight');
+  if (mud < 0 || mud >= gross) return toast('Mud loss must be less than gross weight');
   if (!(g > 0)) return toast('Enter valid grams');
   if (!(r >= 0)) return toast('Enter valid rate');
 
@@ -740,6 +768,8 @@ async function handleSubmit(e, type) {
     phone: (d.phone || '').trim(),
     item: (d.item || '').trim(),
     grams: g,
+    gross: isBuy ? gross : g,
+    mudLoss: mud,
     rate: r,
     total: round2(g * r),
     notes: (d.notes || '').trim()
@@ -831,7 +861,7 @@ function openEditSheet(id) {
         <label>Phone <input name="phone" type="tel" inputmode="tel" value="${esc(e.phone)}"></label>
         <label>Item / purity <input name="item" value="${esc(e.item)}"></label>
         <div class="row2">
-          <label>Grams <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" value="${e.grams}" required></label>
+          <label>${e.type === 'buy' ? 'Gross weight (g)' : 'Grams'} <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" value="${e.type === 'buy' ? (e.gross ?? e.grams) : e.grams}" required></label>${e.type === 'buy' ? `<label>Mud loss (g) <input name="mud" type="number" step="0.001" min="0" inputmode="decimal" value="${e.mudLoss || 0}"></label>` : ''}
           <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${e.rate}" required></label>
         </div>
         <div class="calc"><span>Total</span><strong id="editTotal">${money(e.total)}</strong></div>
@@ -844,7 +874,9 @@ function openEditSheet(id) {
     onOpen: body => {
       const form = body.querySelector('#editForm');
       const update = () => {
-        const g = parseFloat(form.elements.grams.value) || 0;
+        const gv = parseFloat(form.elements.grams.value) || 0;
+        const mv = form.elements.mud ? (parseFloat(form.elements.mud.value) || 0) : 0;
+        const g = Math.max(0, gv - mv);
         const r = parseFloat(form.elements.rate.value) || 0;
         body.querySelector('#editTotal').textContent = money(g * r);
       };
@@ -853,7 +885,13 @@ function openEditSheet(id) {
       form.addEventListener('submit', ev => {
         ev.preventDefault();
         const d = Object.fromEntries(new FormData(form));
-        const g = parseFloat(d.grams), r = parseFloat(d.rate);
+        const isBuy = d.type === 'buy';
+        const gross = parseFloat(d.grams);
+        const mud = isBuy ? (parseFloat(d.mud) || 0) : 0;
+        const g = Math.max(0, Math.round((gross - mud) * 1000) / 1000);
+        const r = parseFloat(d.rate);
+        if (!(gross > 0)) return toast('Enter valid weight');
+        if (mud < 0 || mud >= gross) return toast('Mud loss must be less than gross weight');
         if (!(g > 0)) return toast('Enter valid grams');
         if (!(r >= 0)) return toast('Enter valid rate');
         const updated = {
@@ -864,6 +902,8 @@ function openEditSheet(id) {
           party: (d.party || '').trim(),
           phone: (d.phone || '').trim(),
           item: (d.item || '').trim(),
+          gross: isBuy ? gross : g,
+          mudLoss: mud,
           grams: g,
           rate: r,
           total: round2(g * r),
@@ -883,6 +923,144 @@ function setupSheets() {
   document.addEventListener('keydown', ev => {
     if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet(false);
   });
+}
+
+/* ============================================================
+   PDF EXPORT — exports the records currently shown in Records
+   ============================================================ */
+function setupPDF() {
+  $('#pdfBtn').addEventListener('click', downloadPDF);
+}
+
+function downloadPDF() {
+  const JsPDF = window.jspdf && window.jspdf.jsPDF;
+  if (!JsPDF) return toast('PDF library did not load. Check your internet connection.');
+  if (!lastFiltered.length) return toast('No records for this filter');
+
+  const rows = lastFiltered.slice().sort((a, b) => a.date.localeCompare(b.date) || a.ts - b.ts);
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, M = 14, BOTTOM = 278;
+  const BLACK = [18, 18, 18], YELLOW = [255, 193, 7], DRED = [139, 0, 0], GREEN = [31, 122, 58];
+  const BLUE = [30, 90, 160], GREY = [100, 100, 100], LIGHT = [250, 247, 238];
+  const COL = { date: M + 2, type: M + 24, name: M + 38, gross: 106, mud: 122, grams: 138, rate: 156, amount: 178, profit: W - M };
+
+  const fmtNum = n => (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pdfMoney = n => 'Rs. ' + fmtNum(n);
+  const pdfGrams = n => (Number(n) || 0).toFixed(3) + ' g';
+  const sum = (arr, k) => arr.reduce((s, e) => s + (e[k] || 0), 0);
+  const buys = rows.filter(e => e.type === 'buy');
+  const sells = rows.filter(e => e.type === 'sell');
+  const profit = sum(sells, 'profit');
+  const periodLabel = $('#fPeriod').selectedOptions[0].textContent;
+  const typeLabel = $('#fType').selectedOptions[0].textContent;
+
+  let y = 0;
+  const drawPageHeader = () => {
+    doc.setFillColor(...BLACK); doc.rect(0, 0, W, 28, 'F');
+    doc.setFillColor(...YELLOW); doc.rect(0, 28, W, 1.6, 'F');
+    doc.setTextColor(...YELLOW); doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+    doc.text('Gold Ledger', M, 13);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text('Transaction report · ' + new Date().toLocaleString('en-IN'), M, 21);
+    y = 38;
+  };
+  const drawTableHead = () => {
+    doc.setFillColor(...BLACK); doc.rect(M, y - 5, W - 2 * M, 7, 'F');
+    doc.setTextColor(...YELLOW); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+    doc.text('Date', COL.date, y);
+    doc.text('Type', COL.type, y);
+    doc.text('Name', COL.name, y);
+    doc.text('Gross', COL.gross, y, { align: 'right' });
+    doc.text('Mud', COL.mud, y, { align: 'right' });
+    doc.text('Net g', COL.grams, y, { align: 'right' });
+    doc.text('Rate/g', COL.rate, y, { align: 'right' });
+    doc.text('Amount', COL.amount, y, { align: 'right' });
+    doc.text('Profit', COL.profit, y, { align: 'right' });
+    y += 6;
+  };
+  const breakIfNeeded = () => {
+    if (y > BOTTOM) { doc.addPage(); drawPageHeader(); drawTableHead(); }
+  };
+
+  drawPageHeader();
+
+  // Summary
+  doc.setTextColor(...BLACK); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+  doc.text('Summary', M, y); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...GREY);
+  doc.text(`Period: ${periodLabel}     Filter: ${typeLabel}     Records: ${rows.length}`, M, y); y += 7;
+
+  const summary = [
+    ['Purchased', pdfGrams(sum(buys, 'grams')), pdfMoney(sum(buys, 'total')), BLACK],
+    ['Sold', pdfGrams(sum(sells, 'grams')), pdfMoney(sum(sells, 'total')), BLACK],
+    ['Profit on sales', '', pdfMoney(profit), profit >= 0 ? GREEN : DRED],
+  ];
+  summary.forEach(([label, g, amt, color], i) => {
+    doc.setFillColor(...(i % 2 ? [255, 255, 255] : LIGHT));
+    doc.rect(M, y - 4.5, W - 2 * M, 7, 'F');
+    doc.setTextColor(...BLACK); doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+    doc.text(label, M + 3, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(g, 124, y, { align: 'right' });
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...color);
+    doc.text(amt, W - M - 3, y, { align: 'right' });
+    y += 7;
+  });
+  y += 8;
+
+  // Records table
+  drawTableHead();
+  doc.setFontSize(8.5);
+  rows.forEach((e, i) => {
+    breakIfNeeded();
+    if (i % 2) { doc.setFillColor(...LIGHT); doc.rect(M, y - 4.2, W - 2 * M, 6.5, 'F'); }
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...BLACK);
+    doc.text(e.date, COL.date, y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...(e.type === 'buy' ? BLUE : DRED));
+    doc.text(e.type === 'buy' ? 'BUY' : 'SELL', COL.type, y);
+
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...BLACK);
+    const name = (e.party || '').length > 20 ? e.party.slice(0, 19) + '...' : (e.party || '');
+    doc.text(name, COL.name, y);
+    doc.text(Number(e.gross ?? e.grams).toFixed(3), COL.gross, y, { align: 'right' });
+    doc.text(e.mudLoss ? Number(e.mudLoss).toFixed(3) : '-', COL.mud, y, { align: 'right' });
+    doc.text(Number(e.grams).toFixed(3), COL.grams, y, { align: 'right' });
+    doc.text(fmtNum(e.rate), COL.rate, y, { align: 'right' });
+    doc.text(fmtNum(e.total), COL.amount, y, { align: 'right' });
+
+    if (e.type === 'sell') {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...(e.profit >= 0 ? GREEN : DRED));
+      doc.text(fmtNum(e.profit), COL.profit, y, { align: 'right' });
+    } else {
+      doc.setTextColor(...GREY);
+      doc.text('-', COL.profit, y, { align: 'right' });
+    }
+    y += 6.5;
+  });
+
+  // Total profit row
+  breakIfNeeded();
+  y += 1;
+  doc.setDrawColor(...YELLOW); doc.setLineWidth(0.6);
+  doc.line(M, y, W - M, y); y += 5.5;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...BLACK);
+  doc.text('Total profit', COL.date, y);
+  doc.setTextColor(...(profit >= 0 ? GREEN : DRED));
+  doc.text(fmtNum(profit), COL.profit, y, { align: 'right' });
+
+  // Page numbers
+  const pages = doc.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GREY);
+    doc.text(`Page ${i} of ${pages}`, W / 2, 290, { align: 'center' });
+  }
+
+  doc.save(`gold-ledger-${today()}.pdf`);
+  toast('PDF downloaded');
 }
 
 function showView(name) {
@@ -1152,6 +1330,7 @@ setupPWA();
 setupInstall();
 setupGoldBanner();
 setupSheets();
+setupPDF();
 render();
 </script>
 <script type="module">
