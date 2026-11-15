@@ -210,6 +210,46 @@
   .install .btn.light{background:#2a2a2a;color:#fff}
   #authTitle .ic{width:22px;height:22px;vertical-align:-4px;color:#8B0000}
 </style>
+<style id="rate-controls">
+  .gb-tag{background:rgba(255,255,255,.2)!important;color:#FFF5CC!important}
+  .gb-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .gb-seg{display:flex;background:rgba(0,0,0,.35);border:1px solid #FFC107;border-radius:12px;padding:3px}
+  .gb-seg-btn{background:none;border:0;color:#FFF5CC;padding:7px 16px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer}
+  .gb-seg-btn.active{background:#FFC107;color:#121212}
+  .gb-edit{background:#FFC107;color:#121212;border:0;border-radius:12px;padding:9px 16px;font-weight:700;cursor:pointer}
+  .gb-manual{margin-top:12px;background:rgba(255,193,7,.14);border-radius:14px;padding:12px}
+  .gb-manual label{color:#FFF5CC}
+  .gb-inputs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .gb-inputs input{margin-top:4px;padding:10px}
+  .gb-hint{font-size:12px;color:#FFF5CC;opacity:.85;margin-top:8px}
+  .gb-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+  .gb-form-actions .btn{width:auto;margin:0}
+</style>
+<style id="sheets">
+  .sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;opacity:0;transition:opacity .25s}
+  .sheet-backdrop.show{opacity:1}
+  .sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;max-height:88vh;
+         background:#fff;border-radius:22px 22px 0 0;z-index:50;display:flex;flex-direction:column;
+         transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+         box-shadow:0 -10px 30px rgba(0,0,0,.3)}
+  .sheet.show{transform:translateY(0)}
+  .sheet-handle{width:44px;height:5px;border-radius:3px;background:#d6cfb8;margin:10px auto 4px}
+  .sheet-head{display:flex;justify-content:space-between;align-items:center;padding:4px 18px 10px;border-bottom:1px solid var(--border)}
+  .sheet-head h3{margin:0;font-size:17px;color:#121212}
+  .sheet-close{background:#f3efe2;border:0;border-radius:10px;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;color:#121212}
+  .sheet-close .ic{width:18px;height:18px;vertical-align:0}
+  .sheet-body{padding:14px 18px calc(18px + env(safe-area-inset-bottom));overflow-y:auto}
+  .sheet-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:4px auto 12px;background:#fbe9e9;color:#8B0000}
+  .sheet-icon.warn{background:#FFF5CC;color:#121212}
+  .sheet-icon .ic{width:26px;height:26px;vertical-align:0}
+  .sheet-msg{color:#555;font-size:14px;line-height:1.5;margin:0 0 18px;text-align:center}
+  .sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .sheet-actions .btn{margin:0}
+  .sheet form label{margin-bottom:10px}
+  .entry-actions{display:flex;gap:8px;margin-top:8px}
+  .entry-actions .btn{width:auto;margin:0;padding:7px 14px;font-size:13px}
+  .entry-actions .btn .ic{width:14px;height:14px;vertical-align:-2px}
+</style>
 </head>
 <body class="signed-out">
 <!-- Icon set (single style: 24px line icons, 2px stroke) -->
@@ -229,6 +269,8 @@
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/></symbol>
   <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
   <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
@@ -264,10 +306,12 @@
     <div class="card gold-banner">
       <div class="gb-head">
         <div>
-          <div class="gb-title"><svg class="ic"><use href="#i-coin"/></svg> Gold rate per gram <span class="gb-live" id="gbLive" hidden><svg class="ic sm"><use href="#i-dot"/></svg> LIVE</span></div>
+          <div class="gb-title"><svg class="ic"><use href="#i-coin"/></svg> Gold rate per gram
+            <span class="gb-live" id="gbLive" hidden><svg class="ic sm"><use href="#i-dot"/></svg> LIVE</span>
+            <span class="gb-live gb-tag" id="gbManualBadge" hidden>MANUAL</span></div>
           <div class="gb-time" id="gbTime">Loading…</div>
         </div>
-        <button class="gb-refresh" id="gbRefresh" aria-label="Refresh rate"><svg class="ic"><use href="#i-refresh"/></svg></button>
+        <button class="gb-refresh" id="gbRefresh" aria-label="Refresh live rate"><svg class="ic"><use href="#i-refresh"/></svg></button>
       </div>
       <div class="gb-grid">
         <div><span>24K</span><strong id="gb24">–</strong></div>
@@ -275,12 +319,25 @@
         <div><span>18K</span><strong id="gb18">–</strong></div>
       </div>
       <div class="gb-note" id="gbNote"></div>
-      <div class="gb-manual" id="gbManual" hidden>
-        <label>Enter today's 24K rate per gram (₹)
-          <input type="number" id="gbManualInput" step="0.01" min="0" inputmode="decimal">
-        </label>
-        <button class="btn light small" id="gbManualSave">Save rate</button>
+      <div class="gb-actions">
+        <div class="gb-seg" role="group" aria-label="Rate source">
+          <button class="gb-seg-btn" id="gbModeManual">Manual</button>
+          <button class="gb-seg-btn" id="gbModeLive">Live</button>
+        </div>
+        <button class="gb-edit" id="gbEditBtn">Set rate</button>
       </div>
+      <form class="gb-manual" id="gbForm" hidden>
+        <div class="gb-inputs">
+          <label>24K ₹/g<input type="number" id="gbIn24" step="0.01" min="0" inputmode="decimal" required></label>
+          <label>22K ₹/g<input type="number" id="gbIn22" step="0.01" min="0" inputmode="decimal"></label>
+          <label>18K ₹/g<input type="number" id="gbIn18" step="0.01" min="0" inputmode="decimal"></label>
+        </div>
+        <div class="gb-hint">Enter your shop rate. 22K and 18K fill in from 24K; edit them if your rates differ.</div>
+        <div class="gb-form-actions">
+          <button type="button" class="btn light small" id="gbCancel">Cancel</button>
+          <button type="submit" class="btn gold small" id="gbSave">Save rate</button>
+        </div>
+      </form>
     </div>
     <div class="grid2" style="margin-bottom:12px">
       <div class="stat"><div class="label">Today bought</div><div class="value" id="tBuyG">0 g</div><div class="sub" id="tBuyA">₹0</div></div>
@@ -389,6 +446,16 @@
   <button data-view="records"><span class="ico"><svg class="ic"><use href="#i-records"/></svg></span>Records</button>
 </nav>
 
+<div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3 id="sheetTitle"></h3>
+    <button class="sheet-close" id="sheetClose" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
 <div id="toast"></div>
 
 <div class="install" id="installBar" hidden>
@@ -414,6 +481,7 @@ const fbCall = (name, ...args) => {
 };
 const Store = {
   add: e => fbCall('add', e),
+  update: e => fbCall('update', e),
   remove: id => fbCall('remove', id),
   replaceAll: list => fbCall('replaceAll', list),
   clearAll: () => fbCall('clearAll')
@@ -574,7 +642,7 @@ function renderRecords() {
         ${e.phone ? `<br><svg class="ic sm"><use href="#i-phone"/></svg> ${esc(e.phone)}` : ''}
         ${e.notes ? `<br><svg class="ic sm"><use href="#i-note"/></svg> ${esc(e.notes)}` : ''}
       </div>
-      <button class="btn danger small" data-del="${e.id}">Delete</button>
+      <div class="entry-actions"><button class="btn light small" data-edit="${e.id}">${icon("edit")} Edit</button><button class="btn danger small" data-del="${e.id}">${icon("trash")} Delete</button></div>
     </div>`).join('') : '<div class="empty">No records for this filter</div>';
 }
 
@@ -649,7 +717,7 @@ function updateSellPreview() {
 /* ============================================================
    FORMS
    ============================================================ */
-function handleSubmit(e, type) {
+async function handleSubmit(e, type) {
   e.preventDefault();
   const f = e.target;
   const d = Object.fromEntries(new FormData(f));
@@ -659,7 +727,8 @@ function handleSubmit(e, type) {
   if (!(r >= 0)) return toast('Enter valid rate');
 
   if (type === 'sell' && g > stockGrams + EPS) {
-    if (!confirm(`Only ${grams(stockGrams)} in stock. Save anyway?`)) return;
+    const ok = await askConfirm({ title: 'Not enough stock', message: `Only ${grams(stockGrams)} in stock. This sale will show a shortfall.`, okText: 'Save anyway', icon: 'alert' });
+    if (!ok) return;
   }
 
   const entry = {
@@ -700,6 +769,122 @@ function setupForms() {
 /* ============================================================
    NAVIGATION, FILTERS, BACKUP
    ============================================================ */
+/* ============================================================
+   BOTTOM SHEETS — replace native popups with drawers
+   ============================================================ */
+const icon = (name, cls = '') => `<svg class="ic ${cls}"><use href="#i-${name}"/></svg>`;
+let sheetResolve = null;
+
+function openSheet({ title, body, onOpen }) {
+  const sheet = $('#sheet'), bd = $('#sheetBackdrop');
+  $('#sheetTitle').textContent = title;
+  $('#sheetBody').innerHTML = body;
+  sheet.hidden = false; bd.hidden = false;
+  requestAnimationFrame(() => { sheet.classList.add('show'); bd.classList.add('show'); });
+  if (onOpen) onOpen($('#sheetBody'));
+}
+
+function closeSheet(result) {
+  const sheet = $('#sheet'), bd = $('#sheetBackdrop');
+  sheet.classList.remove('show'); bd.classList.remove('show');
+  setTimeout(() => { sheet.hidden = true; bd.hidden = true; }, 300);
+  if (sheetResolve) { const r = sheetResolve; sheetResolve = null; r(result); }
+}
+
+// Returns a promise: true if confirmed, false if cancelled
+function askConfirm({ title, message, okText = 'Confirm', icon: ico = 'alert', danger = false }) {
+  return new Promise(resolve => {
+    sheetResolve = resolve;
+    openSheet({
+      title,
+      body: `
+        <div class="sheet-icon ${danger ? '' : 'warn'}">${icon(ico)}</div>
+        <p class="sheet-msg">${message}</p>
+        <div class="sheet-actions">
+          <button class="btn light" data-cancel>Cancel</button>
+          <button class="btn ${danger ? 'danger' : 'gold'}" data-ok>${okText}</button>
+        </div>`,
+      onOpen: body => {
+        body.querySelector('[data-cancel]').onclick = () => closeSheet(false);
+        body.querySelector('[data-ok]').onclick = () => closeSheet(true);
+      }
+    });
+  });
+}
+
+// Edit drawer for any purchase or sale
+function openEditSheet(id) {
+  const e = db.entries.find(x => x.id === id);
+  if (!e) return toast('Record not found');
+  openSheet({
+    title: 'Edit record',
+    body: `
+      <form id="editForm" novalidate>
+        <label>Type
+          <select name="type">
+            <option value="buy" ${e.type === 'buy' ? 'selected' : ''}>Purchase (from customer)</option>
+            <option value="sell" ${e.type === 'sell' ? 'selected' : ''}>Sale (to vendor)</option>
+          </select>
+        </label>
+        <label>Date <input type="date" name="date" value="${esc(e.date)}" required></label>
+        <label>Name <input name="party" value="${esc(e.party)}" required></label>
+        <label>Phone <input name="phone" type="tel" inputmode="tel" value="${esc(e.phone)}"></label>
+        <label>Item / purity <input name="item" value="${esc(e.item)}"></label>
+        <div class="row2">
+          <label>Grams <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" value="${e.grams}" required></label>
+          <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${e.rate}" required></label>
+        </div>
+        <div class="calc"><span>Total</span><strong id="editTotal">${money(e.total)}</strong></div>
+        <label>Notes <input name="notes" value="${esc(e.notes)}"></label>
+        <div class="sheet-actions">
+          <button type="button" class="btn light" data-cancel>Cancel</button>
+          <button type="submit" class="btn gold">Save changes</button>
+        </div>
+      </form>`,
+    onOpen: body => {
+      const form = body.querySelector('#editForm');
+      const update = () => {
+        const g = parseFloat(form.elements.grams.value) || 0;
+        const r = parseFloat(form.elements.rate.value) || 0;
+        body.querySelector('#editTotal').textContent = money(g * r);
+      };
+      form.addEventListener('input', update);
+      body.querySelector('[data-cancel]').onclick = () => closeSheet(false);
+      form.addEventListener('submit', ev => {
+        ev.preventDefault();
+        const d = Object.fromEntries(new FormData(form));
+        const g = parseFloat(d.grams), r = parseFloat(d.rate);
+        if (!(g > 0)) return toast('Enter valid grams');
+        if (!(r >= 0)) return toast('Enter valid rate');
+        const updated = {
+          id: e.id,
+          type: d.type,
+          date: d.date || e.date,
+          ts: e.ts,
+          party: (d.party || '').trim(),
+          phone: (d.phone || '').trim(),
+          item: (d.item || '').trim(),
+          grams: g,
+          rate: r,
+          total: round2(g * r),
+          notes: (d.notes || '').trim()
+        };
+        Store.update(updated)
+          .then(() => { closeSheet(false); toast('Record updated'); })
+          .catch(() => toast('Update failed'));
+      });
+    }
+  });
+}
+
+function setupSheets() {
+  $('#sheetBackdrop').addEventListener('click', () => closeSheet(false));
+  $('#sheetClose').addEventListener('click', () => closeSheet(false));
+  document.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape' && !$('#sheet').hidden) closeSheet(false);
+  });
+}
+
 function showView(name) {
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
@@ -711,12 +896,21 @@ function setupEvents() {
 
   ['#fType', '#fPeriod', '#fFrom', '#fTo'].forEach(s => $(s).addEventListener('change', renderRecords));
 
-  $('#recordsList').addEventListener('click', e => {
-    const id = e.target.dataset.del;
-    if (!id) return;
-    if (!confirm('Delete this record?')) return;
-    Store.remove(id).catch(() => toast('Delete failed'));
-    toast('Deleted');
+  $('#recordsList').addEventListener('click', async e => {
+    const editId = e.target.closest('[data-edit]')?.dataset.edit;
+    if (editId) return openEditSheet(editId);
+    const delId = e.target.closest('[data-del]')?.dataset.del;
+    if (!delId) return;
+    const rec = db.entries.find(x => x.id === delId);
+    const ok = await askConfirm({
+      title: 'Delete record?',
+      message: rec
+        ? `This removes the ${rec.type === 'buy' ? 'purchase' : 'sale'} of ${grams(rec.grams)} with ${esc(rec.party)}. This cannot be undone.`
+        : 'This cannot be undone.',
+      okText: 'Delete', icon: 'trash', danger: true
+    });
+    if (!ok) return;
+    Store.remove(delId).then(() => toast('Deleted')).catch(() => toast('Delete failed'));
   });
 
   $('#exportBtn').addEventListener('click', () => {
@@ -732,11 +926,12 @@ function setupEvents() {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const data = JSON.parse(reader.result);
         if (!Array.isArray(data.entries)) throw new Error('Invalid file');
-        if (!confirm('Replace current data with this backup?')) return;
+        const ok = await askConfirm({ title: 'Replace all data?', message: 'The current records will be replaced by this backup.', okText: 'Replace', icon: 'upload', danger: true });
+        if (!ok) return;
         Store.replaceAll(data.entries).catch(() => toast('Import failed'));
         toast('Backup imported');
       } catch (err) {
@@ -747,8 +942,9 @@ function setupEvents() {
     reader.readAsText(file);
   });
 
-  $('#clearBtn').addEventListener('click', () => {
-    if (!confirm('Delete ALL data? Export a backup first.')) return;
+  $('#clearBtn').addEventListener('click', async () => {
+    const ok = await askConfirm({ title: 'Clear all data?', message: 'Every purchase and sale in the database will be deleted for all users. Export a backup first.', okText: 'Clear all', icon: 'trash', danger: true });
+    if (!ok) return;
     Store.clearAll().catch(() => toast('Clear failed'));
     toast('All data cleared');
   });
@@ -776,96 +972,123 @@ function setupPWA() {
 }
 
 /* ============================================================
-   INSTALL PROMPT — slides up after a few seconds
-   Android/Chrome/Edge: native install button
-   iPhone/iPad Safari: shows "Share → Add to Home Screen" steps
-   ============================================================ */
-/* ============================================================
-   LIVE GOLD BANNER — GoldAPI.io (per gram, INR)
-   Paste your token below. Without a token, the banner runs in
-   manual mode where you type today's 24K rate.
+   GOLD RATE BANNER
+   Source: manual (typed by the shop, saved to Firestore and shared
+   by all signed-in users) or live (xaus.com, free, no key).
    ============================================================ */
 const GOLD_CURRENCY = 'INR';
-const RATE_KEY = 'goldLedger_rate';
-const RATE_TTL = 10 * 60 * 1000; // refresh at most every 10 minutes
+const LIVE_TTL = 10 * 60 * 1000;
+let rateMode = 'manual';  // 'manual' | 'live'
+let manualRate = null;    // { k24, k22, k18, updatedAt } from settings/rate
+let liveRate = null;      // { k24, k22, k18, fetchedAt } from xaus.com
+let liveError = '';
 
-function setupGoldBanner() {
-  const hasToken = true; // free public feed, no key needed
-  const $gb = { k24: $('#gb24'), k22: $('#gb22'), k18: $('#gb18'), time: $('#gbTime'), note: $('#gbNote'), live: $('#gbLive') };
-  const readSaved = () => { try { return JSON.parse(localStorage.getItem(RATE_KEY)); } catch (e) { return null; } };
+const splitKarats = k24 => ({ k24: round2(k24), k22: round2(k24 * 22 / 24), k18: round2(k24 * 18 / 24) });
+const fmtTime = ts => new Date(ts).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-  const show = (rec, note = '') => {
-    if (!rec) {
-      $gb.k24.textContent = $gb.k22.textContent = $gb.k18.textContent = '–';
-      $gb.time.textContent = 'No rate yet';
-    } else {
-      $gb.k24.textContent = money(rec.k24);
-      $gb.k22.textContent = money(rec.k22);
-      $gb.k18.textContent = money(rec.k18);
-      const d = new Date(rec.fetchedAt);
-      $gb.time.textContent = 'Updated ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) +
-        ' · ' + d.toLocaleDateString('en-IN');
-    }
-    $gb.live.hidden = !(rec && rec.live);
-    $gb.note.textContent = note;
-  };
+function currentRate() {
+  if (rateMode === 'live' && liveRate) return { ...liveRate, updatedAt: liveRate.fetchedAt, live: true };
+  if (rateMode === 'manual' && manualRate) return { ...manualRate, live: false };
+  return null;
+}
 
-  // Free public feed (xaus.com): no API key, returns price per gram in the requested currency
-  const fromApi = async () => {
+function renderRate() {
+  const r = currentRate();
+  $('#gb24').textContent = r ? money(r.k24) : '–';
+  $('#gb22').textContent = r ? money(r.k22) : '–';
+  $('#gb18').textContent = r ? money(r.k18) : '–';
+  $('#gbTime').textContent = r ? `${r.live ? 'Live' : 'Set manually'} · ${fmtTime(r.updatedAt)}` : 'No rate set yet';
+  $('#gbLive').hidden = !(r && r.live);
+  $('#gbManualBadge').hidden = !(r && !r.live);
+  $('#gbModeManual').classList.toggle('active', rateMode === 'manual');
+  $('#gbModeLive').classList.toggle('active', rateMode === 'live');
+  let note = '';
+  if (rateMode === 'live' && !liveRate) note = liveError || 'Fetching live rate…';
+  else if (rateMode === 'manual' && !manualRate) note = "Tap Set rate to enter today's price.";
+  $('#gbNote').textContent = note;
+}
+
+async function fetchLive() {
+  try {
     const r = await fetch(`https://xaus.com/api/v1/spot?currency=${GOLD_CURRENCY}&unit=gram`);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     const k24 = d.xau && d.xau.price;
     if (!(k24 > 0)) throw new Error('No price in response');
-    return { k24: round2(k24), k22: round2(k24 * 22 / 24), k18: round2(k24 * 18 / 24), fetchedAt: Date.now(), live: true };
-  };
-
-  const manualRecord = k24 => ({
-    k24, k22: round2(k24 * 22 / 24), k18: round2(k24 * 18 / 24), fetchedAt: Date.now(), live: false
-  });
-
-  async function load(force = false) {
-    const saved = readSaved();
-
-    if (!hasToken) {
-      $('#gbManual').hidden = false;
-      show(saved, saved ? 'Manual rate. Update it each morning.' : 'Live feed not set up. Enter today\'s rate below.');
-      return;
-    }
-    if (!force && saved && saved.live && Date.now() - saved.fetchedAt < RATE_TTL) {
-      show(saved);
-      return;
-    }
-    try {
-      const rec = await fromApi();
-      localStorage.setItem(RATE_KEY, JSON.stringify(rec));
-      show(rec);
-    } catch (err) {
-      if (!saved) $('#gbManual').hidden = false; // let the user type a rate if the feed is unreachable
-      show(saved, saved ? 'Offline. Showing last saved rate.' : 'Could not load live rate. Check your connection, or enter it below.');
-    }
+    liveRate = { ...splitKarats(k24), fetchedAt: Date.now() };
+    liveError = '';
+  } catch (err) {
+    liveError = 'Live rate unavailable right now. Use the manual rate or try refresh.';
   }
-
-  $('#gbRefresh').addEventListener('click', () => {
-    if (hasToken) load(true);
-    else toast('Enter the rate manually below');
-  });
-
-  $('#gbManualSave').addEventListener('click', () => {
-    const v = parseFloat($('#gbManualInput').value);
-    if (!(v > 0)) return toast('Enter a valid 24K rate');
-    const rec = manualRecord(v);
-    localStorage.setItem(RATE_KEY, JSON.stringify(rec));
-    show(rec, 'Manual rate. Update it each morning.');
-    $('#gbManualInput').value = '';
-    toast('Rate saved');
-  });
-
-  load();
-  // Keep the banner fresh while the app stays open (live mode only)
-  if (hasToken) setInterval(() => load(), RATE_TTL);
+  renderRate();
 }
 
+// Called by the Firebase module whenever settings/rate changes
+window.onRateChange = rec => {
+  manualRate = rec && rec.k24
+    ? { k24: rec.k24, k22: rec.k22, k18: rec.k18, updatedAt: rec.updatedAt || Date.now() }
+    : null;
+  rateMode = rec && rec.mode ? rec.mode : 'manual';
+  renderRate();
+};
+
+function saveRate(data) {
+  if (!window.RATE) { toast('Still connecting. Please try again.'); return Promise.reject(new Error('not ready')); }
+  return window.RATE.save(data);
+}
+
+function setupGoldBanner() {
+  const form = $('#gbForm');
+  const in24 = $('#gbIn24'), in22 = $('#gbIn22'), in18 = $('#gbIn18');
+
+  $('#gbModeManual').addEventListener('click', () =>
+    saveRate({ mode: 'manual' }).catch(() => toast('Could not change mode')));
+  $('#gbModeLive').addEventListener('click', () => {
+    fetchLive();
+    saveRate({ mode: 'live' }).catch(() => toast('Could not change mode'));
+  });
+
+  in24.addEventListener('input', () => {
+    const v = parseFloat(in24.value);
+    if (v > 0) { const s = splitKarats(v); in22.value = s.k22; in18.value = s.k18; }
+  });
+
+  $('#gbEditBtn').addEventListener('click', () => {
+    const base = manualRate || liveRate;
+    in24.value = base ? base.k24 : '';
+    in22.value = base ? base.k22 : '';
+    in18.value = base ? base.k18 : '';
+    form.hidden = !form.hidden;
+  });
+  $('#gbCancel').addEventListener('click', () => { form.hidden = true; });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const k24 = parseFloat(in24.value);
+    if (!(k24 > 0)) return toast('Enter a valid 24K rate');
+    const auto = splitKarats(k24);
+    const k22 = parseFloat(in22.value) > 0 ? round2(parseFloat(in22.value)) : auto.k22;
+    const k18 = parseFloat(in18.value) > 0 ? round2(parseFloat(in18.value)) : auto.k18;
+    try {
+      await saveRate({ k24, k22, k18, mode: 'manual' });
+      form.hidden = true;
+      toast('Rate saved');
+    } catch (err) {
+      toast('Could not save rate');
+    }
+  });
+
+  $('#gbRefresh').addEventListener('click', fetchLive);
+  fetchLive();
+  setInterval(fetchLive, LIVE_TTL);
+  renderRate();
+}
+
+/* ============================================================
+   INSTALL PROMPT — slides up after a few seconds
+   Android/Chrome/Edge: native install button
+   iPhone/iPad Safari: shows "Share → Add to Home Screen" steps
+   ============================================================ */
 function setupInstall() {
   const bar = $('#installBar');
   const btn = $('#installBtn');
@@ -928,6 +1151,7 @@ setupEvents();
 setupPWA();
 setupInstall();
 setupGoldBanner();
+setupSheets();
 render();
 </script>
 <script type="module">
@@ -966,8 +1190,12 @@ const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2
 
 // Real-time listener: runs only while signed in
 let unsubscribe = null;
+let unsubRate = null;
 function startSync() {
   if (unsubscribe) return;
+  if (!unsubRate) unsubRate = onSnapshot(doc(fs, "settings", "rate"),
+    snap => { if (typeof window.onRateChange === "function") window.onRateChange(snap.exists() ? snap.data() : null); },
+    err => console.error("Rate error:", err.code));
   unsubscribe = onSnapshot(entriesCol, { includeMetadataChanges: true }, snap => {
     const list = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     if (typeof window.onRemoteEntries === "function") window.onRemoteEntries(list);
@@ -978,6 +1206,7 @@ function startSync() {
   });
 }
 function stopSync() {
+  if (unsubRate) { unsubRate(); unsubRate = null; }
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
 }
 
@@ -1064,7 +1293,8 @@ document.getElementById("authReset").addEventListener("click", async () => {
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
-  if (!confirm("Log out of Gold Ledger?")) return;
+  const ok = await askConfirm({ title: "Log out?", message: "You will need your email and password to sign in again.", okText: "Log out", icon: "logout", danger: true });
+  if (!ok) return;
   await signOut(auth);
   toast("Logged out");
 });
@@ -1079,8 +1309,13 @@ async function commit(ops) {
   }
 }
 
+window.RATE = {
+  save: rec => setDoc(doc(fs, "settings", "rate"), { ...rec, updatedAt: Date.now() }, { merge: true })
+};
+
 window.FB = {
   add: entry => setDoc(doc(entriesCol, entry.id), entry),
+  update: entry => setDoc(doc(entriesCol, entry.id), entry),
   remove: id => deleteDoc(doc(entriesCol, id)),
   replaceAll: async list => {
     const snap = await getDocs(entriesCol);
