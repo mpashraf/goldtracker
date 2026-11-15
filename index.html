@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121212">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gold Ledger">
+<title>Gold Ledger</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --gold:#b8860b; --gold-light:#fff6dc; --bg:#f5f5f2; --card:#fff;
+    --text:#222; --muted:#777; --green:#1b7f3b; --red:#c0392b; --border:#e3e3dc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);padding-bottom:76px}
+  header{background:var(--gold);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));position:sticky;top:0;z-index:10}
+  header h1{margin:0;font-size:20px}
+  main{padding:12px;max-width:520px;margin:auto}
+  .view{display:none}
+  .view.active{display:block}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h2{font-size:16px;margin:0 0 10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .stat .label{font-size:12px;color:var(--muted)}
+  .stat .value{font-size:18px;font-weight:600;margin-top:4px}
+  .stat .sub{font-size:12px;color:var(--muted)}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:10px}
+  input,select{display:block;width:100%;margin-top:4px;padding:11px;font-size:16px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text)}
+  input:focus,select:focus{outline:2px solid var(--gold);border-color:transparent}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .calc{background:var(--gold-light);border-radius:8px;padding:10px;margin:6px 0 12px;font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+  .hint{font-size:12px;color:var(--muted);margin-top:-6px;margin-bottom:10px}
+  .btn{display:block;width:100%;padding:13px;border:0;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer}
+  .btn.gold{background:var(--gold);color:#fff}
+  .btn.light{background:#eee;color:var(--text)}
+  .btn.danger{background:#fbe9e7;color:var(--red)}
+  .btn.small{width:auto;display:inline-block;padding:6px 10px;font-size:13px;margin-top:6px}
+  .actions{display:grid;gap:8px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 4px;border-bottom:1px solid var(--border)}
+  th{font-size:12px;color:var(--muted);font-weight:500}
+  td.r,th.r{text-align:right}
+  .entry{border-bottom:1px solid var(--border);padding:10px 0}
+  .entry:last-child{border-bottom:0}
+  .entry-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:99px;color:#fff}
+  .badge.buy{background:#2e86c1}
+  .badge.sell{background:var(--green)}
+  .entry-meta{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .empty{color:var(--muted);text-align:center;padding:16px;font-size:14px}
+  nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:10}
+  nav button{flex:1;background:none;border:0;padding:10px 4px;font-size:12px;color:var(--muted);cursor:pointer}
+  nav button.active{color:var(--gold);font-weight:600}
+  nav .ico{display:block;font-size:20px;margin-bottom:2px}
+  #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20}
+  #toast.show{opacity:1}
+  [hidden]{display:none!important}
+  .install{position:fixed;left:12px;right:12px;bottom:80px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:15;max-width:500px;margin:auto;animation:slideUp .4s ease-out}
+  .install strong{font-size:15px}
+  .install .msg{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .install-actions{display:flex;gap:6px;flex-shrink:0}
+  .install-actions .btn{width:auto;margin:0;padding:8px 12px;font-size:14px}
+  @keyframes slideUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+  .gold-banner{background:linear-gradient(135deg,#b8860b,#e0b13a);color:#fff;border:0;margin-bottom:12px}
+  .gb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .gb-title{font-weight:600;font-size:15px}
+  .gb-time{font-size:12px;opacity:.9;margin-top:2px}
+  .gb-live{font-size:11px;background:rgba(255,255,255,.25);padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+  .gb-refresh{background:rgba(255,255,255,.25);color:#fff;border:0;border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer}
+  .gb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .gb-grid div{background:rgba(255,255,255,.18);border-radius:10px;padding:8px;text-align:center}
+  .gb-grid span{display:block;font-size:12px;opacity:.9}
+  .gb-grid strong{display:block;font-size:16px;margin-top:2px}
+  .gb-note{font-size:12px;opacity:.95;margin-top:8px}
+  .gb-manual{margin-top:10px;background:rgba(255,255,255,.18);border-radius:10px;padding:10px}
+  .gb-manual label{color:#fff}
+  .gb-manual input{color:var(--text)}
+  .gb-manual .btn{margin-top:8px}
+  .auth-err{color:var(--red);font-size:13px;min-height:18px;margin-bottom:8px}
+  .auth-links{display:flex;justify-content:space-between;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .link{background:none;border:0;color:var(--gold);font-size:14px;cursor:pointer;padding:4px 0;font-weight:600}
+  body.signed-out .view:not(#view-login){display:none!important}
+  body.signed-out nav{display:none}
+  body.signed-out #view-login{display:block}
+  body:not(.signed-out) #view-login{display:none!important}
+  .login-wrap{max-width:420px;margin:24px auto 0}
+</style>
+<style id="paytm-theme">
+  /* ---------- Paytm-style theme ---------- */
+  :root{
+    --gold:#00baf2; --gold-light:#e8f8fd; --bg:#f2f5f9; --card:#ffffff;
+    --text:#0b1f3a; --muted:#6b7a90; --green:#1ba672; --red:#e5484d;
+    --border:#e6ebf2; --navy:#002970;
+  }
+  body{background:var(--bg);color:var(--text);padding-bottom:96px;
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+  header{background:linear-gradient(135deg,#00baf2 0%,#0a7fd6 55%,#002970 100%);color:#fff;
+         border-radius:0 0 26px 26px;padding:18px 18px 26px;
+         padding-top:calc(18px + env(safe-area-inset-top));
+         box-shadow:0 8px 24px rgba(0,41,112,.28);position:sticky;top:0;z-index:10}
+  header h1{font-size:21px;font-weight:700;letter-spacing:.2px}
+  header small{opacity:.9!important}
+  main{padding:14px 14px 0;max-width:560px;margin:auto}
+  .card{background:var(--card);border:0;border-radius:18px;padding:16px;margin-bottom:14px;
+        box-shadow:0 2px 12px rgba(16,40,80,.07)}
+  .card h2{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:12px}
+  .stat{background:var(--card);border:0;border-radius:18px;padding:14px;
+        box-shadow:0 2px 12px rgba(16,40,80,.07)}
+  .stat .label{font-size:12px;color:var(--muted);font-weight:500}
+  .stat .value{font-size:19px;font-weight:700;color:var(--navy);margin-top:6px}
+  .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .pos{color:var(--green)!important} .neg{color:var(--red)!important}
+  label{font-size:13px;font-weight:600;color:var(--muted)}
+  input,select{border:1px solid var(--border);border-radius:14px;background:#f7f9fc;padding:12px 14px;color:var(--text)}
+  input:focus,select:focus{outline:2px solid var(--gold);background:#fff;border-color:transparent}
+  .calc{background:var(--gold-light);border-radius:14px;padding:12px 14px;color:var(--navy);font-weight:600}
+  .hint{color:var(--muted)}
+  .btn{border-radius:16px;font-weight:700;letter-spacing:.2px;padding:14px}
+  .btn.gold{background:linear-gradient(135deg,#00baf2,#0a7fd6);color:#fff;box-shadow:0 8px 18px rgba(0,186,242,.35)}
+  .btn.light{background:#eef4fb;color:var(--navy)}
+  .btn.danger{background:#fdecec;color:var(--red)}
+  .btn.small{border-radius:12px;padding:8px 14px}
+  table th{color:var(--muted);font-weight:600}
+  th,td{border-bottom:1px solid #eef2f7}
+  .entry{border-bottom:1px solid #eef2f7}
+  .entry-meta{color:var(--muted)}
+  .badge{border-radius:8px;font-weight:700;font-size:10px;letter-spacing:.4px;padding:3px 8px}
+  .badge.buy{background:#2e86de}
+  .badge.sell{background:var(--green)}
+  .empty{color:var(--muted)}
+
+  /* Floating bottom navigation */
+  nav{left:12px;right:12px;bottom:12px;border-radius:24px;background:#fff;border-top:0;
+      box-shadow:0 10px 30px rgba(16,40,80,.16);padding:6px;
+      padding-bottom:6px;margin:0 auto;max-width:536px}
+  nav button{color:#7a8aa3;font-size:11px;font-weight:600;border-radius:18px;padding:8px 4px}
+  nav button.active{color:var(--gold);background:var(--gold-light)}
+  nav .ico{font-size:20px;margin-bottom:2px}
+
+  /* Rate banner */
+  .gold-banner{background:linear-gradient(135deg,#00baf2 0%,#002970 100%);border-radius:22px;color:#fff;
+               box-shadow:0 10px 26px rgba(0,41,112,.28)}
+  .gb-grid div{background:rgba(255,255,255,.16);border-radius:14px}
+  .gb-refresh{background:rgba(255,255,255,.22);border-radius:12px}
+  .gb-manual{background:rgba(255,255,255,.16);border-radius:14px}
+
+  /* Popups and sheets */
+  #toast{background:var(--navy);border-radius:14px;padding:12px 18px}
+  .install{border:0;border-radius:20px;box-shadow:0 12px 34px rgba(0,41,112,.28)}
+  .install .btn.gold{padding:8px 14px}
+  .link{color:var(--gold)}
+  .auth-err{color:var(--red)}
+  .login-wrap{margin-top:28px}
+</style>
+<style id="ledger-theme">
+  /* ---------- Yellow, black and dark red theme ---------- */
+  :root{
+    --yellow:#FFC107; --yellow-soft:#FFF5CC; --black:#121212; --dred:#8B0000;
+    --bg:#F5F3EE; --card:#FFFFFF; --text:#121212; --muted:#6b6b6b; --border:#E8E2D0;
+    --gold:#FFC107; --gold-light:#FFF5CC; --navy:#121212;
+    --green:#1f7a3a; --red:#8B0000;
+  }
+  body{background:var(--bg);color:var(--text)}
+  .ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-4px;flex-shrink:0}
+  .ic.sm{width:14px;height:14px;vertical-align:-2px}
+  header{background:linear-gradient(135deg,#121212 0%,#2a0808 60%,#8B0000 100%);color:#FFC107;
+         border-bottom:3px solid #FFC107;border-radius:0 0 26px 26px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  header h1{color:#FFC107;display:flex;align-items:center;gap:8px}
+  header h1 .ic{width:24px;height:24px}
+  header small{color:#fff!important;opacity:.85!important}
+  .card{border-top:3px solid transparent}
+  .card h2{color:var(--black)}
+  .stat{border-left:4px solid #FFC107}
+  .stat .value{color:var(--black)}
+  .stat .label{color:var(--muted)}
+  .btn.gold{background:linear-gradient(135deg,#FFC107,#e0a800);color:#121212;box-shadow:0 8px 18px rgba(255,193,7,.35)}
+  .btn.light{background:var(--yellow-soft);color:#121212}
+  .btn.danger{background:#8B0000;color:#fff}
+  .calc{background:var(--yellow-soft);color:#121212}
+  input:focus,select:focus{outline:2px solid #FFC107}
+  .badge.buy{background:#121212;color:#FFC107}
+  .badge.sell{background:#8B0000;color:#fff}
+  .pos{color:var(--green)!important} .neg{color:var(--dred)!important}
+  .link{color:#8B0000}
+  .auth-err{color:#8B0000}
+  nav{background:#121212;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  nav button{color:#bdbdbd}
+  nav button.active{color:#121212;background:#FFC107}
+  nav .ic{width:22px;height:22px}
+  .gold-banner{background:linear-gradient(135deg,#121212 0%,#3a0d0d 55%,#8B0000 100%);color:#FFF5CC;
+               border:2px solid #FFC107;box-shadow:0 10px 26px rgba(0,0,0,.35)}
+  .gb-title{color:#FFC107}
+  .gb-title .ic{width:20px;height:20px;vertical-align:-4px;color:#FFC107}
+  .gb-grid div{background:rgba(255,193,7,.14)}
+  .gb-grid strong{color:#FFC107}
+  .gb-refresh{background:#FFC107;color:#121212}
+  .gb-live{background:#FFC107;color:#121212}
+  .gb-live .ic{width:10px;height:10px;vertical-align:0}
+  .gb-manual{background:rgba(255,193,7,.14)}
+  #toast{background:#121212;color:#FFC107;border:1px solid #FFC107}
+  .install{background:#121212;color:#fff;border:2px solid #FFC107}
+  .install strong{color:#FFC107}
+  .install strong .ic{width:18px;height:18px;vertical-align:-3px}
+  .install .msg{color:#d6d6d6}
+  .install .btn.light{background:#2a2a2a;color:#fff}
+  #authTitle .ic{width:22px;height:22px;vertical-align:-4px;color:#8B0000}
+</style>
+</head>
+<body class="signed-out">
+<!-- Icon set (single style: 24px line icons, 2px stroke) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+  <symbol id="i-buy" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8.5 13.5 12 17l3.5-3.5"/></symbol>
+  <symbol id="i-sell" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 17V7M8.5 10.5 12 7l3.5 3.5"/></symbol>
+  <symbol id="i-records" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18h.01"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></symbol>
+  <symbol id="i-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <div>
+      <h1><svg class="ic"><use href="#i-coin"/></svg> Gold Ledger</h1>
+      <small id="syncState" style="display:block;opacity:.9;font-size:12px;margin-top:2px">Signed out</small>
+    </div>
+    <button class="gb-refresh" id="logoutBtn" hidden style="font-size:13px;padding:6px 12px"><svg class="ic sm"><use href="#i-logout"/></svg> Log out</button>
+  </div>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section class="view login-wrap" id="view-login">
+    <form class="card" id="authForm" novalidate>
+      <h2 id="authTitle"><svg class="ic"><use href="#i-lock"/></svg> Sign in</h2>
+      <p class="hint" id="authSub" style="margin-top:0">Enter your email and password to open the ledger.</p>
+      <label>Email <input type="email" id="authEmail" autocomplete="username" inputmode="email" required></label>
+      <label>Password <input type="password" id="authPass" autocomplete="current-password" minlength="6" required></label>
+      <div class="auth-err" id="authErr"></div>
+      <button class="btn gold" type="submit" id="authSubmit">Sign in</button>
+      <div class="auth-links">
+        <button type="button" class="link" id="authToggle">New here? Create account</button>
+        <button type="button" class="link" id="authReset">Forgot password?</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- HOME -->
+  <section class="view active" id="view-home">
+    <div class="card gold-banner">
+      <div class="gb-head">
+        <div>
+          <div class="gb-title"><svg class="ic"><use href="#i-coin"/></svg> Gold rate per gram <span class="gb-live" id="gbLive" hidden><svg class="ic sm"><use href="#i-dot"/></svg> LIVE</span></div>
+          <div class="gb-time" id="gbTime">Loading…</div>
+        </div>
+        <button class="gb-refresh" id="gbRefresh" aria-label="Refresh rate"><svg class="ic"><use href="#i-refresh"/></svg></button>
+      </div>
+      <div class="gb-grid">
+        <div><span>24K</span><strong id="gb24">–</strong></div>
+        <div><span>22K</span><strong id="gb22">–</strong></div>
+        <div><span>18K</span><strong id="gb18">–</strong></div>
+      </div>
+      <div class="gb-note" id="gbNote"></div>
+      <div class="gb-manual" id="gbManual" hidden>
+        <label>Enter today's 24K rate per gram (₹)
+          <input type="number" id="gbManualInput" step="0.01" min="0" inputmode="decimal">
+        </label>
+        <button class="btn light small" id="gbManualSave">Save rate</button>
+      </div>
+    </div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div class="stat"><div class="label">Today bought</div><div class="value" id="tBuyG">0 g</div><div class="sub" id="tBuyA">₹0</div></div>
+      <div class="stat"><div class="label">Today sold</div><div class="value" id="tSellG">0 g</div><div class="sub" id="tSellA">₹0</div></div>
+      <div class="stat"><div class="label">Today profit</div><div class="value" id="tProfit">₹0</div></div>
+      <div class="stat"><div class="label">All-time profit</div><div class="value" id="allProfit">₹0</div></div>
+      <div class="stat"><div class="label">Stock on hand</div><div class="value" id="stockG">0 g</div><div class="sub" id="stockV">Value ₹0</div></div>
+      <div class="stat"><div class="label">Total entries</div><div class="value" id="totalEntries">0</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Stock lots (FIFO)</h2>
+      <div id="lotsBox"></div>
+    </div>
+
+    <div class="card">
+      <h2>Backup & data</h2>
+      <div class="actions">
+        <button class="btn light" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg> Export backup (JSON)</button>
+        <label class="btn light" style="margin:0;text-align:center;cursor:pointer;color:var(--text)">
+          <svg class="ic"><use href="#i-upload"/></svg> Import backup
+          <input type="file" id="importFile" accept="application/json" hidden>
+        </label>
+        <button class="btn danger" id="clearBtn"><svg class="ic"><use href="#i-trash"/></svg> Clear all data</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUY -->
+  <section class="view" id="view-buy">
+    <form class="card" id="buyForm">
+      <h2>Buy gold from customer</h2>
+      <label>Date <input type="date" name="date" required></label>
+      <label>Customer name <input name="party" required placeholder="Customer name"></label>
+      <label>Phone <input name="phone" type="tel" inputmode="tel" placeholder="Optional"></label>
+      <label>Item / purity <input name="item" placeholder="e.g. 22K chain, old bangle, coin"></label>
+      <div class="row2">
+        <label>Grams <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" required></label>
+        <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" required></label>
+      </div>
+      <div class="calc"><span>Total paid</span><strong data-total>₹0.00</strong></div>
+      <label>Notes <input name="notes" placeholder="Optional"></label>
+      <button class="btn gold" type="submit">Save purchase</button>
+    </form>
+  </section>
+
+  <!-- SELL -->
+  <section class="view" id="view-sell">
+    <form class="card" id="sellForm">
+      <h2>Sell gold to vendor</h2>
+      <label>Date <input type="date" name="date" required></label>
+      <label>Vendor name <input name="party" required placeholder="Vendor / buyer name"></label>
+      <label>Phone <input name="phone" type="tel" inputmode="tel" placeholder="Optional"></label>
+      <label>Item / purity <input name="item" placeholder="e.g. 24K bar, 22K mix"></label>
+      <div class="row2">
+        <label>Grams <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" required></label>
+        <label>Sell rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" required></label>
+      </div>
+      <div class="hint" id="stockHint"></div>
+      <div class="calc"><span>Sale amount</span><strong data-total>₹0.00</strong></div>
+      <div class="calc"><span>Estimated cost</span><strong data-cost>₹0.00</strong></div>
+      <div class="calc"><span>Estimated profit</span><strong data-profit>₹0.00</strong></div>
+      <label>Notes <input name="notes" placeholder="Optional"></label>
+      <button class="btn gold" type="submit">Save sale</button>
+    </form>
+  </section>
+
+  <!-- RECORDS -->
+  <section class="view" id="view-records">
+    <div class="card">
+      <h2>Records</h2>
+      <div class="row2">
+        <label>Type
+          <select id="fType">
+            <option value="all">All</option>
+            <option value="buy">Purchases</option>
+            <option value="sell">Sales</option>
+          </select>
+        </label>
+        <label>Period
+          <select id="fPeriod">
+            <option value="today">Today</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="all" selected>All time</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+      </div>
+      <div class="row2" id="customRange" style="display:none">
+        <label>From <input type="date" id="fFrom"></label>
+        <label>To <input type="date" id="fTo"></label>
+      </div>
+      <div class="calc"><span>Filtered grams</span><strong id="fGrams">0 g</strong></div>
+      <div class="calc"><span>Filtered profit</span><strong id="fProfit">₹0</strong></div>
+    </div>
+    <div class="card" id="dailyBox"></div>
+    <div class="card" id="recordsList"></div>
+  </section>
+</main>
+
+<nav>
+  <button data-view="home" class="active"><span class="ico"><svg class="ic"><use href="#i-home"/></svg></span>Home</button>
+  <button data-view="buy"><span class="ico"><svg class="ic"><use href="#i-buy"/></svg></span>Buy</button>
+  <button data-view="sell"><span class="ico"><svg class="ic"><use href="#i-sell"/></svg></span>Sell</button>
+  <button data-view="records"><span class="ico"><svg class="ic"><use href="#i-records"/></svg></span>Records</button>
+</nav>
+
+<div id="toast"></div>
+
+<div class="install" id="installBar" hidden>
+  <div>
+    <strong><svg class="ic"><use href="#i-download"/></svg> Install Gold Ledger</strong>
+    <div class="msg" id="installMsg">Add it to your home screen for quick, offline access.</div>
+  </div>
+  <div class="install-actions">
+    <button class="btn light" id="installLater">Later</button>
+    <button class="btn gold" id="installBtn" hidden>Install</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STORAGE LAYER — swap these functions for Firebase later
+   ============================================================ */
+// Writes go to Firestore (see the module script at the bottom).
+// The real-time listener calls onRemoteEntries() whenever data changes.
+const fbCall = (name, ...args) => {
+  if (!window.FB) { toast('Still connecting to database…'); return Promise.reject(new Error('Not connected')); }
+  return window.FB[name](...args);
+};
+const Store = {
+  add: e => fbCall('add', e),
+  remove: id => fbCall('remove', id),
+  replaceAll: list => fbCall('replaceAll', list),
+  clearAll: () => fbCall('clearAll')
+};
+window.onRemoteEntries = list => {
+  db.entries = list;
+  persist();
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let db = { entries: [] };
+let stockLots = [];     // remaining FIFO lots after replay
+let stockGrams = 0;
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const round2 = n => Math.round(n * 100) / 100;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD (local)
+const money = n => '₹' + (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const grams = n => (Number(n) || 0).toFixed(3) + ' g';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const EPS = 1e-9;
+
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ============================================================
+   CORE LOGIC — FIFO stock replay and profit calculation
+   ============================================================ */
+function recalc() {
+  db.entries.sort((a, b) => a.date.localeCompare(b.date) || a.ts - b.ts);
+  const lots = [];
+  for (const e of db.entries) {
+    if (e.type === 'buy') {
+      lots.push({ grams: e.grams, rate: e.rate });
+      e.cost = 0; e.profit = 0; e.shortfall = 0;
+    } else {
+      let need = e.grams, cost = 0;
+      while (need > EPS && lots.length) {
+        const lot = lots[0];
+        const take = Math.min(lot.grams, need);
+        cost += take * lot.rate;
+        lot.grams -= take;
+        need -= take;
+        if (lot.grams <= EPS) lots.shift();
+      }
+      e.shortfall = need > EPS ? round2(need) : 0;
+      e.cost = round2(cost);
+      e.profit = round2(e.total - cost);
+    }
+  }
+  stockLots = lots.filter(l => l.grams > EPS);
+  stockGrams = stockLots.reduce((s, l) => s + l.grams, 0);
+}
+
+function previewSale(g) {
+  let need = g, cost = 0;
+  for (const lot of stockLots) {
+    if (need <= EPS) break;
+    const take = Math.min(lot.grams, need);
+    cost += take * lot.rate;
+    need -= take;
+  }
+  return { cost: round2(cost), short: need > EPS ? round2(need) : 0 };
+}
+
+function persist() {
+  recalc();
+  render();
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render() {
+  const t = today();
+  const todays = db.entries.filter(e => e.date === t);
+  const tb = todays.filter(e => e.type === 'buy');
+  const ts = todays.filter(e => e.type === 'sell');
+  const sum = (arr, k) => arr.reduce((s, e) => s + (e[k] || 0), 0);
+
+  $('#tBuyG').textContent = grams(sum(tb, 'grams'));
+  $('#tBuyA').textContent = money(sum(tb, 'total'));
+  $('#tSellG').textContent = grams(sum(ts, 'grams'));
+  $('#tSellA').textContent = money(sum(ts, 'total'));
+
+  const tp = sum(ts, 'profit');
+  $('#tProfit').textContent = money(tp);
+  $('#tProfit').className = 'value ' + (tp >= 0 ? 'pos' : 'neg');
+
+  const allP = sum(db.entries.filter(e => e.type === 'sell'), 'profit');
+  $('#allProfit').textContent = money(allP);
+  $('#allProfit').className = 'value ' + (allP >= 0 ? 'pos' : 'neg');
+
+  const stockVal = stockLots.reduce((s, l) => s + l.grams * l.rate, 0);
+  $('#stockG').textContent = grams(stockGrams);
+  $('#stockV').textContent = 'Value (cost) ' + money(stockVal);
+  $('#totalEntries').textContent = db.entries.length;
+
+  $('#lotsBox').innerHTML = stockLots.length ? `
+    <table>
+      <tr><th>#</th><th class="r">Grams left</th><th class="r">Rate paid</th><th class="r">Cost</th></tr>
+      ${stockLots.map((l, i) => `<tr><td>${i + 1}</td><td class="r">${grams(l.grams)}</td><td class="r">${money(l.rate)}</td><td class="r">${money(l.grams * l.rate)}</td></tr>`).join('')}
+    </table>` : '<div class="empty">No stock on hand</div>';
+
+  renderRecords();
+  updateSellPreview();
+}
+
+function renderRecords() {
+  const type = $('#fType').value;
+  const period = $('#fPeriod').value;
+  const t = today();
+  let from = '0000-00-00', to = '9999-99-99';
+
+  if (period === 'today') { from = t; to = t; }
+  else if (period === '7' || period === '30') {
+    const d = new Date(); d.setDate(d.getDate() - (+period - 1));
+    from = d.toLocaleDateString('en-CA'); to = t;
+  } else if (period === 'custom') {
+    from = $('#fFrom').value || from;
+    to = $('#fTo').value || to;
+  }
+  $('#customRange').style.display = period === 'custom' ? 'grid' : 'none';
+
+  const list = db.entries
+    .filter(e => (type === 'all' || e.type === type) && e.date >= from && e.date <= to)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.ts - a.ts);
+
+  $('#fGrams').textContent = grams(list.reduce((s, e) => s + e.grams, 0));
+  const p = list.filter(e => e.type === 'sell').reduce((s, e) => s + e.profit, 0);
+  $('#fProfit').textContent = money(p);
+  $('#fProfit').className = p >= 0 ? 'pos' : 'neg';
+  renderDaily(list);
+
+  $('#recordsList').innerHTML = list.length ? list.map(e => `
+    <div class="entry">
+      <div class="entry-top">
+        <div><span class="badge ${e.type}">${e.type === 'buy' ? 'PURCHASE' : 'SALE'}</span>
+          <strong style="margin-left:6px">${esc(e.party)}</strong></div>
+        <span style="font-size:12px;color:var(--muted)">${esc(e.date)}</span>
+      </div>
+      <div class="entry-meta">
+        ${esc(e.item) ? esc(e.item) + ' · ' : ''}${grams(e.grams)} @ ${money(e.rate)}/g = <strong>${money(e.total)}</strong>
+        ${e.type === 'sell' ? `<br>Cost ${money(e.cost)} · Profit <strong class="${e.profit >= 0 ? 'pos' : 'neg'}">${money(e.profit)}</strong>` : ''}
+        ${e.type === 'sell' && e.shortfall > 0 ? `<br><span class="neg"><svg class="ic sm"><use href="#i-alert"/></svg> Short ${grams(e.shortfall)} (not in stock when sold)</span>` : ''}
+        ${e.phone ? `<br><svg class="ic sm"><use href="#i-phone"/></svg> ${esc(e.phone)}` : ''}
+        ${e.notes ? `<br><svg class="ic sm"><use href="#i-note"/></svg> ${esc(e.notes)}` : ''}
+      </div>
+      <button class="btn danger small" data-del="${e.id}">Delete</button>
+    </div>`).join('') : '<div class="empty">No records for this filter</div>';
+}
+
+/* Daily history: entries grouped by date, newest day first */
+function renderDaily(list) {
+  const box = $('#dailyBox');
+  if (!list.length) {
+    box.innerHTML = '<h2>Daily history</h2><div class="empty">No history for this filter</div>';
+    return;
+  }
+  const byDate = {};
+  list.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const sum = (arr, k) => arr.reduce((s, e) => s + (e[k] || 0), 0);
+
+  const days = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).map(d => {
+    const items = byDate[d].slice().sort((a, b) => b.ts - a.ts);
+    const buys = items.filter(e => e.type === 'buy');
+    const sells = items.filter(e => e.type === 'sell');
+    const profit = sum(sells, 'profit');
+    const label = new Date(d + 'T00:00:00').toLocaleDateString('en-IN', {
+      weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+    });
+    return `
+      <div style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:var(--gold-light);border-radius:8px;padding:8px 10px">
+          <strong>${label}</strong>
+          <span class="${profit >= 0 ? 'pos' : 'neg'}" style="font-size:13px">Profit ${money(profit)}</span>
+        </div>
+        <table style="margin-top:6px;font-size:13px">
+          <tr><th>Time</th><th>Type</th><th>Party</th><th class="r">Grams</th><th class="r">Rate</th><th class="r">Amount</th></tr>
+          ${items.map(e => `
+            <tr>
+              <td>${new Date(e.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
+              <td><span class="badge ${e.type}">${e.type === 'buy' ? 'BUY' : 'SELL'}</span></td>
+              <td>${esc(e.party)}</td>
+              <td class="r">${Number(e.grams).toFixed(3)}</td>
+              <td class="r">${money(e.rate)}</td>
+              <td class="r">${money(e.total)}</td>
+            </tr>`).join('')}
+        </table>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">
+          Bought ${grams(sum(buys, 'grams'))} (${money(sum(buys, 'total'))}) · Sold ${grams(sum(sells, 'grams'))} (${money(sum(sells, 'total'))})
+        </div>
+      </div>`;
+  }).join('');
+
+  box.innerHTML = '<h2>Daily history</h2>' + days;
+}
+
+function updateTotal(form) {
+  const g = parseFloat(form.elements.grams.value) || 0;
+  const r = parseFloat(form.elements.rate.value) || 0;
+  form.querySelector('[data-total]').textContent = money(g * r);
+}
+
+function updateSellPreview() {
+  const f = $('#sellForm');
+  const g = parseFloat(f.elements.grams.value) || 0;
+  const r = parseFloat(f.elements.rate.value) || 0;
+  const total = round2(g * r);
+  const { cost, short } = previewSale(g);
+  const profit = round2(total - cost);
+  f.querySelector('[data-total]').textContent = money(total);
+  f.querySelector('[data-cost]').textContent = money(cost);
+  const pEl = f.querySelector('[data-profit]');
+  pEl.textContent = money(profit);
+  pEl.className = profit >= 0 ? 'pos' : 'neg';
+  $('#stockHint').textContent = `Stock available: ${grams(stockGrams)}` +
+    (short > 0 ? ` · Short by ${grams(short)}` : '');
+}
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+function handleSubmit(e, type) {
+  e.preventDefault();
+  const f = e.target;
+  const d = Object.fromEntries(new FormData(f));
+  const g = parseFloat(d.grams), r = parseFloat(d.rate);
+
+  if (!(g > 0)) return toast('Enter valid grams');
+  if (!(r >= 0)) return toast('Enter valid rate');
+
+  if (type === 'sell' && g > stockGrams + EPS) {
+    if (!confirm(`Only ${grams(stockGrams)} in stock. Save anyway?`)) return;
+  }
+
+  const entry = {
+    id: uid(),
+    type,
+    date: d.date || today(),
+    ts: Date.now(),
+    party: (d.party || '').trim(),
+    phone: (d.phone || '').trim(),
+    item: (d.item || '').trim(),
+    grams: g,
+    rate: r,
+    total: round2(g * r),
+    notes: (d.notes || '').trim()
+  };
+  Store.add(entry).catch(() => toast('Not saved. Please try again.'));
+
+  f.reset();
+  f.elements.date.value = today();
+  updateTotal(f);
+  persist();
+  toast(type === 'buy' ? 'Purchase saved' : 'Sale saved');
+  if (type === 'sell') updateSellPreview();
+}
+
+function setupForms() {
+  for (const [id, type] of [['#buyForm', 'buy'], ['#sellForm', 'sell']]) {
+    const form = $(id);
+    form.elements.date.value = today();
+    form.addEventListener('input', () => {
+      updateTotal(form);
+      if (type === 'sell') updateSellPreview();
+    });
+    form.addEventListener('submit', e => handleSubmit(e, type));
+  }
+}
+
+/* ============================================================
+   NAVIGATION, FILTERS, BACKUP
+   ============================================================ */
+function showView(name) {
+  $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  window.scrollTo(0, 0);
+}
+
+function setupEvents() {
+  $$('nav button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+
+  ['#fType', '#fPeriod', '#fFrom', '#fTo'].forEach(s => $(s).addEventListener('change', renderRecords));
+
+  $('#recordsList').addEventListener('click', e => {
+    const id = e.target.dataset.del;
+    if (!id) return;
+    if (!confirm('Delete this record?')) return;
+    Store.remove(id).catch(() => toast('Delete failed'));
+    toast('Deleted');
+  });
+
+  $('#exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `gold-ledger-${today()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  $('#importFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data.entries)) throw new Error('Invalid file');
+        if (!confirm('Replace current data with this backup?')) return;
+        Store.replaceAll(data.entries).catch(() => toast('Import failed'));
+        toast('Backup imported');
+      } catch (err) {
+        toast('Invalid backup file');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  $('#clearBtn').addEventListener('click', () => {
+    if (!confirm('Delete ALL data? Export a backup first.')) return;
+    Store.clearAll().catch(() => toast('Clear failed'));
+    toast('All data cleared');
+  });
+}
+
+/* ============================================================
+   PWA: manifest (inline) + optional service worker
+   ============================================================ */
+function setupPWA() {
+  const icon = `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#b8860b"/><text x="50" y="66" font-size="52" text-anchor="middle" fill="#fff" font-family="Arial">Au</text></svg>`)}`;
+  const manifest = {
+    name: 'Gold Ledger',
+    short_name: 'Gold Ledger',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#f5f5f2',
+    theme_color: '#b8860b',
+    icons: [{ src: icon, sizes: 'any', type: 'image/svg+xml' }]
+  };
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* works without it; needed only for offline */ });
+  }
+}
+
+/* ============================================================
+   INSTALL PROMPT — slides up after a few seconds
+   Android/Chrome/Edge: native install button
+   iPhone/iPad Safari: shows "Share → Add to Home Screen" steps
+   ============================================================ */
+/* ============================================================
+   LIVE GOLD BANNER — GoldAPI.io (per gram, INR)
+   Paste your token below. Without a token, the banner runs in
+   manual mode where you type today's 24K rate.
+   ============================================================ */
+const GOLD_CURRENCY = 'INR';
+const RATE_KEY = 'goldLedger_rate';
+const RATE_TTL = 10 * 60 * 1000; // refresh at most every 10 minutes
+
+function setupGoldBanner() {
+  const hasToken = true; // free public feed, no key needed
+  const $gb = { k24: $('#gb24'), k22: $('#gb22'), k18: $('#gb18'), time: $('#gbTime'), note: $('#gbNote'), live: $('#gbLive') };
+  const readSaved = () => { try { return JSON.parse(localStorage.getItem(RATE_KEY)); } catch (e) { return null; } };
+
+  const show = (rec, note = '') => {
+    if (!rec) {
+      $gb.k24.textContent = $gb.k22.textContent = $gb.k18.textContent = '–';
+      $gb.time.textContent = 'No rate yet';
+    } else {
+      $gb.k24.textContent = money(rec.k24);
+      $gb.k22.textContent = money(rec.k22);
+      $gb.k18.textContent = money(rec.k18);
+      const d = new Date(rec.fetchedAt);
+      $gb.time.textContent = 'Updated ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) +
+        ' · ' + d.toLocaleDateString('en-IN');
+    }
+    $gb.live.hidden = !(rec && rec.live);
+    $gb.note.textContent = note;
+  };
+
+  // Free public feed (xaus.com): no API key, returns price per gram in the requested currency
+  const fromApi = async () => {
+    const r = await fetch(`https://xaus.com/api/v1/spot?currency=${GOLD_CURRENCY}&unit=gram`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const k24 = d.xau && d.xau.price;
+    if (!(k24 > 0)) throw new Error('No price in response');
+    return { k24: round2(k24), k22: round2(k24 * 22 / 24), k18: round2(k24 * 18 / 24), fetchedAt: Date.now(), live: true };
+  };
+
+  const manualRecord = k24 => ({
+    k24, k22: round2(k24 * 22 / 24), k18: round2(k24 * 18 / 24), fetchedAt: Date.now(), live: false
+  });
+
+  async function load(force = false) {
+    const saved = readSaved();
+
+    if (!hasToken) {
+      $('#gbManual').hidden = false;
+      show(saved, saved ? 'Manual rate. Update it each morning.' : 'Live feed not set up. Enter today\'s rate below.');
+      return;
+    }
+    if (!force && saved && saved.live && Date.now() - saved.fetchedAt < RATE_TTL) {
+      show(saved);
+      return;
+    }
+    try {
+      const rec = await fromApi();
+      localStorage.setItem(RATE_KEY, JSON.stringify(rec));
+      show(rec);
+    } catch (err) {
+      if (!saved) $('#gbManual').hidden = false; // let the user type a rate if the feed is unreachable
+      show(saved, saved ? 'Offline. Showing last saved rate.' : 'Could not load live rate. Check your connection, or enter it below.');
+    }
+  }
+
+  $('#gbRefresh').addEventListener('click', () => {
+    if (hasToken) load(true);
+    else toast('Enter the rate manually below');
+  });
+
+  $('#gbManualSave').addEventListener('click', () => {
+    const v = parseFloat($('#gbManualInput').value);
+    if (!(v > 0)) return toast('Enter a valid 24K rate');
+    const rec = manualRecord(v);
+    localStorage.setItem(RATE_KEY, JSON.stringify(rec));
+    show(rec, 'Manual rate. Update it each morning.');
+    $('#gbManualInput').value = '';
+    toast('Rate saved');
+  });
+
+  load();
+  // Keep the banner fresh while the app stays open (live mode only)
+  if (hasToken) setInterval(() => load(), RATE_TTL);
+}
+
+function setupInstall() {
+  const bar = $('#installBar');
+  const btn = $('#installBtn');
+  const msg = $('#installMsg');
+
+  const isInstalled = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (isInstalled) return;
+
+  const DISMISS_KEY = 'goldLedger_installDismissed';
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  if (Date.now() - (+localStorage.getItem(DISMISS_KEY) || 0) < WEEK) return;
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let deferredPrompt = null;
+  let scheduled = false;
+
+  const showLater = () => {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => { bar.hidden = false; }, 3000);
+  };
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();          // stop the browser's default mini-bar
+    deferredPrompt = e;
+    btn.hidden = false;
+    showLater();
+  });
+
+  if (isIOS) {
+    msg.innerHTML = 'Tap <b>Share</b> <svg class="ic sm"><use href="#i-upload"/></svg> then <b>Add to Home Screen</b>.';
+    showLater();
+  }
+
+  btn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    bar.hidden = true;
+  });
+
+  $('#installLater').addEventListener('click', () => {
+    bar.hidden = true;
+    localStorage.setItem(DISMISS_KEY, Date.now());
+  });
+
+  window.addEventListener('appinstalled', () => {
+    bar.hidden = true;
+    toast('App installed');
+  });
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+recalc();
+setupForms();
+setupEvents();
+setupPWA();
+setupInstall();
+setupGoldBanner();
+render();
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, setDoc, deleteDoc, getDocs, writeBatch, onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCYDRKCvEuJztZyLPJ3q9YHFDvYPN3om2U",
+  authDomain: "goldtrack-app.firebaseapp.com",
+  projectId: "goldtrack-app",
+  storageBucket: "goldtrack-app.firebasestorage.app",
+  messagingSenderId: "35883664846",
+  appId: "1:35883664846:web:a1fde83de449c4da33179f",
+  measurementId: "G-CW48M3TBW1"
+};
+
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, sendPasswordResetEmail, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// Offline-first: writes are cached on the device and sync when the connection returns
+const fs = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
+const entriesCol = collection(fs, "entries");
+const syncEl = document.getElementById("syncState");
+
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+
+// Real-time listener: runs only while signed in
+let unsubscribe = null;
+function startSync() {
+  if (unsubscribe) return;
+  unsubscribe = onSnapshot(entriesCol, { includeMetadataChanges: true }, snap => {
+    const list = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    if (typeof window.onRemoteEntries === "function") window.onRemoteEntries(list);
+    syncEl.textContent = snap.metadata.fromCache ? "Offline · saved on this device" : "Synced";
+  }, err => {
+    console.error("Firestore error:", err.code, err.message);
+    syncEl.textContent = "Error · " + (err.code || "sync");
+  });
+}
+function stopSync() {
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+}
+
+// Auth state drives the screen: login form when signed out, the app when signed in
+onAuthStateChanged(auth, user => {
+  document.body.classList.toggle("signed-out", !user);
+  document.getElementById("logoutBtn").hidden = !user;
+  if (user) {
+    syncEl.textContent = "Connecting…";
+    startSync();
+  } else {
+    stopSync();
+    syncEl.textContent = "Signed out";
+    if (typeof window.onRemoteEntries === "function") window.onRemoteEntries([]);
+  }
+});
+
+// ---- Login / sign-up / reset ----
+const authForm = document.getElementById("authForm");
+const authEmail = document.getElementById("authEmail");
+const authPass = document.getElementById("authPass");
+const authErr = document.getElementById("authErr");
+const authSubmit = document.getElementById("authSubmit");
+let authMode = "signin"; // or "signup"
+
+const friendlyError = code => ({
+  "auth/invalid-email": "That email address is not valid.",
+  "auth/missing-password": "Please enter your password.",
+  "auth/invalid-credential": "Wrong email or password.",
+  "auth/user-not-found": "No account found with this email.",
+  "auth/wrong-password": "Wrong email or password.",
+  "auth/email-already-in-use": "An account already exists for this email. Sign in instead.",
+  "auth/weak-password": "Password must be at least 6 characters.",
+  "auth/too-many-requests": "Too many attempts. Please wait a few minutes and try again.",
+  "auth/network-request-failed": "No internet connection. Please try again.",
+}[code] || "Something went wrong. Please try again.");
+
+authForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  authErr.textContent = "";
+  const email = authEmail.value.trim();
+  const pass = authPass.value;
+  if (!email || !pass) { authErr.textContent = "Enter your email and password."; return; }
+
+  authSubmit.disabled = true;
+  try {
+    if (authMode === "signin") await signInWithEmailAndPassword(auth, email, pass);
+    else await createUserWithEmailAndPassword(auth, email, pass);
+    authPass.value = "";
+  } catch (err) {
+    authErr.textContent = friendlyError(err.code);
+  } finally {
+    authSubmit.disabled = false;
+  }
+});
+
+document.getElementById("authToggle").addEventListener("click", () => {
+  authMode = authMode === "signin" ? "signup" : "signin";
+  const signup = authMode === "signup";
+  document.getElementById("authTitle").innerHTML = signup
+    ? '<svg class="ic"><use href="#i-user-plus"/></svg> Create account'
+    : '<svg class="ic"><use href="#i-lock"/></svg> Sign in';
+  document.getElementById("authSub").textContent = signup
+    ? "Create an account with your email. Password must be at least 6 characters."
+    : "Enter your email and password to open the ledger.";
+  authSubmit.textContent = signup ? "Create account" : "Sign in";
+  authPass.autocomplete = signup ? "new-password" : "current-password";
+  document.getElementById("authToggle").textContent = signup ? "Already have an account? Sign in" : "New here? Create account";
+  authErr.textContent = "";
+});
+
+document.getElementById("authReset").addEventListener("click", async () => {
+  authErr.textContent = "";
+  const email = authEmail.value.trim();
+  if (!email) { authErr.textContent = "Enter your email above first."; return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    authErr.style.color = "var(--green)";
+    authErr.textContent = "Password reset link sent to " + email;
+    setTimeout(() => { authErr.style.color = ""; }, 5000);
+  } catch (err) {
+    authErr.textContent = friendlyError(err.code);
+  }
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  if (!confirm("Log out of Gold Ledger?")) return;
+  await signOut(auth);
+  toast("Logged out");
+});
+
+// Firestore batches hold at most 500 writes
+async function commit(ops) {
+  for (let i = 0; i < ops.length; i += 450) {
+    const batch = writeBatch(fs);
+    ops.slice(i, i + 450).forEach(op =>
+      op.type === "set" ? batch.set(op.ref, op.data) : batch.delete(op.ref));
+    await batch.commit();
+  }
+}
+
+window.FB = {
+  add: entry => setDoc(doc(entriesCol, entry.id), entry),
+  remove: id => deleteDoc(doc(entriesCol, id)),
+  replaceAll: async list => {
+    const snap = await getDocs(entriesCol);
+    const ops = snap.docs.map(d => ({ type: "delete", ref: d.ref }));
+    list.forEach(e => {
+      const id = e.id || newId();
+      ops.push({ type: "set", ref: doc(entriesCol, id), data: { ...e, id } });
+    });
+    await commit(ops);
+  },
+  clearAll: async () => {
+    const snap = await getDocs(entriesCol);
+    await commit(snap.docs.map(d => ({ type: "delete", ref: d.ref })));
+  }
+};
+</script>
+</body>
+</html>
