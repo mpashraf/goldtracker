@@ -251,6 +251,18 @@
   .entry-actions .btn{width:auto;margin:0;padding:7px 14px;font-size:13px}
   .entry-actions .btn .ic{width:14px;height:14px;vertical-align:-2px}
 </style>
+<style id="lots-foot">
+  .lots-foot{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .lots-foot strong{font-size:13px}
+</style>
+<style id="karat-badges">
+  .karat{display:inline-block;padding:2px 8px;border-radius:8px;font-weight:700;font-size:12px;background:#eee;color:#555}
+  .karat.k24{background:#FFC107;color:#121212}
+  .karat.k22{background:#121212;color:#FFC107}
+  .karat.k21{background:#FFE082;color:#121212}
+  .karat.k18{background:#8B0000;color:#fff}
+  .karat.k14{background:#f3efe2;color:#8B0000;border:1px solid #8B0000}
+</style>
 </head>
 <body class="signed-out">
 <!-- Icon set (single style: 24px line icons, 2px stroke) -->
@@ -333,8 +345,9 @@
           <label>22K ₹/g<input type="number" id="gbIn22" step="0.01" min="0" inputmode="decimal"></label>
           <label>18K ₹/g<input type="number" id="gbIn18" step="0.01" min="0" inputmode="decimal"></label>
         </div>
-        <div class="gb-hint">Enter your shop rate. 22K and 18K fill in from 24K; edit them if your rates differ.</div>
+        <div class="gb-hint">Each karat is saved on its own. Type each price, or tap Auto from 24K to fill 22K and 18K from 24K, then change any you need. A blank 22K or 18K is filled from 24K when you save.</div>
         <div class="gb-form-actions">
+          <button type="button" class="btn light small" id="gbAuto">Auto from 24K</button>
           <button type="button" class="btn light small" id="gbCancel">Cancel</button>
           <button type="submit" class="btn gold small" id="gbSave">Save rate</button>
         </div>
@@ -354,18 +367,7 @@
       <div id="lotsBox"></div>
     </div>
 
-    <div class="card">
-      <h2>Backup & data</h2>
-      <div class="actions">
-        <button class="btn light" id="exportBtn"><svg class="ic"><use href="#i-download"/></svg> Export backup (JSON)</button>
-        <label class="btn light" style="margin:0;text-align:center;cursor:pointer;color:var(--text)">
-          <svg class="ic"><use href="#i-upload"/></svg> Import backup
-          <input type="file" id="importFile" accept="application/json" hidden>
-        </label>
-        <button class="btn danger" id="clearBtn"><svg class="ic"><use href="#i-trash"/></svg> Clear all data</button>
-      </div>
-    </div>
-  </section>
+      </section>
 
   <!-- BUY -->
   <section class="view" id="view-buy">
@@ -380,6 +382,7 @@
         <label>Mud loss (g) <input name="mud" type="number" step="0.001" min="0" inputmode="decimal" placeholder="0"></label>
       </div>
       <div class="calc"><span>Net weight (after mud loss)</span><strong data-net>0.000 g</strong></div>
+      <label>Purity <select name="karat"><option value="24">24K (fine)</option><option value="22" selected>22K</option><option value="21">21K</option><option value="18">18K</option><option value="14">14K</option></select></label>
       <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" required></label>
       <div class="calc"><span>Total paid</span><strong data-total>₹0.00</strong></div>
       <label>Notes <input name="notes" placeholder="Optional"></label>
@@ -532,7 +535,7 @@ function recalc() {
   const lots = [];
   for (const e of db.entries) {
     if (e.type === 'buy') {
-      lots.push({ grams: e.grams, rate: e.rate });
+      lots.push({ grams: e.grams, rate: e.rate, karat: e.karat || null });
       e.cost = 0; e.profit = 0; e.shortfall = 0;
     } else {
       let need = e.grams, cost = 0;
@@ -597,11 +600,21 @@ function render() {
   $('#stockV').textContent = 'Value (cost) ' + money(stockVal);
   $('#totalEntries').textContent = db.entries.length;
 
+  const mkRate = currentRate()?.k24 || 0;
+  const lotsCost = stockLots.reduce((s, l) => s + l.grams * l.rate, 0);
+  const lotsMkt = stockLots.reduce((s, l) => s + (l.karat ? l.grams * mkRate * l.karat / 24 : 0), 0);
+  const costKnown = stockLots.filter(l => l.karat).reduce((s, l) => s + l.grams * l.rate, 0);
+  const unreal = lotsMkt - costKnown;
   $('#lotsBox').innerHTML = stockLots.length ? `
     <table>
-      <tr><th>#</th><th class="r">Grams left</th><th class="r">Rate paid</th><th class="r">Cost</th></tr>
-      ${stockLots.map((l, i) => `<tr><td>${i + 1}</td><td class="r">${grams(l.grams)}</td><td class="r">${money(l.rate)}</td><td class="r">${money(l.grams * l.rate)}</td></tr>`).join('')}
-    </table>` : '<div class="empty">No stock on hand</div>';
+      <tr><th>#</th><th>Purity</th><th class="r">Grams left</th><th class="r">Rate paid</th><th class="r">Cost</th><th class="r">Market value</th></tr>
+      ${stockLots.map((l, i) => `<tr><td>${i + 1}</td><td><span class="karat ${l.karat ? 'k' + l.karat : ''}">${l.karat ? l.karat + 'K' : '?'}</span></td><td class="r">${grams(l.grams)}</td><td class="r">${money(l.rate)}</td><td class="r">${money(l.grams * l.rate)}</td><td class="r">${mkRate && l.karat ? money(l.grams * mkRate * l.karat / 24) : '–'}</td></tr>`).join('')}
+    </table>
+    <div class="lots-foot">
+      ${mkRate
+        ? `Cost ${money(lotsCost)} · Market ${money(lotsMkt)} · <strong class="${unreal >= 0 ? 'pos' : 'neg'}">${unreal >= 0 ? '+' : ''}${money(unreal)}</strong> unrealised`
+        : 'Set the gold rate to see market value'}
+    </div>` : '<div class="empty">No stock on hand</div>';
 
   renderRecords();
   updateSellPreview();
@@ -715,9 +728,10 @@ function updateTotal(form) {
 
 // Text for records: shows gross, mud loss and net for purchases with mud loss
 function weightText(e) {
-  return e.type === 'buy' && e.mudLoss > 0
+  const k = e.type === 'buy' && e.karat ? e.karat + 'K · ' : '';
+  return k + (e.type === 'buy' && e.mudLoss > 0
     ? `Gross ${grams(e.gross)} − Mud ${grams(e.mudLoss)} = Net ${grams(e.grams)}`
-    : grams(e.grams);
+    : grams(e.grams));
 }
 
 function updateSellPreview() {
@@ -770,6 +784,7 @@ async function handleSubmit(e, type) {
     grams: g,
     gross: isBuy ? gross : g,
     mudLoss: mud,
+    karat: isBuy ? (parseInt(d.karat, 10) || null) : null,
     rate: r,
     total: round2(g * r),
     notes: (d.notes || '').trim()
@@ -859,7 +874,8 @@ function openEditSheet(id) {
         <label>Date <input type="date" name="date" value="${esc(e.date)}" required></label>
         <label>Name <input name="party" value="${esc(e.party)}" required></label>
         <label>Phone <input name="phone" type="tel" inputmode="tel" value="${esc(e.phone)}"></label>
-        <label>Item / purity <input name="item" value="${esc(e.item)}"></label>
+        <label>Item <input name="item" value="${esc(e.item)}"></label>
+        ${e.type === 'buy' ? `<label>Purity <select name="karat" data-k="${e.karat || ''}"><option value=\"24\">24K (fine)</option><option value=\"22\" selected>22K</option><option value=\"21\">21K</option><option value=\"18\">18K</option><option value=\"14\">14K</option></select></label>` : ''}
         <div class="row2">
           <label>${e.type === 'buy' ? 'Gross weight (g)' : 'Grams'} <input name="grams" type="number" step="0.001" min="0" inputmode="decimal" value="${e.type === 'buy' ? (e.gross ?? e.grams) : e.grams}" required></label>${e.type === 'buy' ? `<label>Mud loss (g) <input name="mud" type="number" step="0.001" min="0" inputmode="decimal" value="${e.mudLoss || 0}"></label>` : ''}
           <label>Rate / gram (₹) <input name="rate" type="number" step="0.01" min="0" inputmode="decimal" value="${e.rate}" required></label>
@@ -873,6 +889,7 @@ function openEditSheet(id) {
       </form>`,
     onOpen: body => {
       const form = body.querySelector('#editForm');
+      if (form.elements.karat && e.karat) form.elements.karat.value = String(e.karat);
       const update = () => {
         const gv = parseFloat(form.elements.grams.value) || 0;
         const mv = form.elements.mud ? (parseFloat(form.elements.mud.value) || 0) : 0;
@@ -904,6 +921,7 @@ function openEditSheet(id) {
           item: (d.item || '').trim(),
           gross: isBuy ? gross : g,
           mudLoss: mud,
+          karat: isBuy ? (parseInt(d.karat, 10) || null) : null,
           grams: g,
           rate: r,
           total: round2(g * r),
@@ -1022,7 +1040,8 @@ function downloadPDF() {
     doc.text(e.type === 'buy' ? 'BUY' : 'SELL', COL.type, y);
 
     doc.setFont('helvetica', 'normal'); doc.setTextColor(...BLACK);
-    const name = (e.party || '').length > 20 ? e.party.slice(0, 19) + '...' : (e.party || '');
+    const base = (e.party || '') + (e.karat ? ' ' + e.karat + 'K' : '');
+    const name = base.length > 22 ? base.slice(0, 21) + '...' : base;
     doc.text(name, COL.name, y);
     doc.text(Number(e.gross ?? e.grams).toFixed(3), COL.gross, y, { align: 'right' });
     doc.text(e.mudLoss ? Number(e.mudLoss).toFixed(3) : '-', COL.mud, y, { align: 'right' });
@@ -1091,7 +1110,7 @@ function setupEvents() {
     Store.remove(delId).then(() => toast('Deleted')).catch(() => toast('Delete failed'));
   });
 
-  $('#exportBtn').addEventListener('click', () => {
+  $('#exportBtn')?.addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1100,7 +1119,7 @@ function setupEvents() {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
-  $('#importFile').addEventListener('change', e => {
+  $('#importFile')?.addEventListener('change', e => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -1120,7 +1139,7 @@ function setupEvents() {
     reader.readAsText(file);
   });
 
-  $('#clearBtn').addEventListener('click', async () => {
+  $('#clearBtn')?.addEventListener('click', async () => {
     const ok = await askConfirm({ title: 'Clear all data?', message: 'Every purchase and sale in the database will be deleted for all users. Export a backup first.', okText: 'Clear all', icon: 'trash', danger: true });
     if (!ok) return;
     Store.clearAll().catch(() => toast('Clear failed'));
@@ -1226,10 +1245,6 @@ function setupGoldBanner() {
     saveRate({ mode: 'live' }).catch(() => toast('Could not change mode'));
   });
 
-  in24.addEventListener('input', () => {
-    const v = parseFloat(in24.value);
-    if (v > 0) { const s = splitKarats(v); in22.value = s.k22; in18.value = s.k18; }
-  });
 
   $('#gbEditBtn').addEventListener('click', () => {
     const base = manualRate || liveRate;
@@ -1239,6 +1254,13 @@ function setupGoldBanner() {
     form.hidden = !form.hidden;
   });
   $('#gbCancel').addEventListener('click', () => { form.hidden = true; });
+  $('#gbAuto').addEventListener('click', () => {
+    const v = parseFloat(in24.value);
+    if (!(v > 0)) return toast('Type the 24K rate first');
+    const sk = splitKarats(v);
+    in22.value = sk.k22;
+    in18.value = sk.k18;
+  });
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
