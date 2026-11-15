@@ -698,15 +698,14 @@ function renderDaily(list) {
           <span class="${profit >= 0 ? 'pos' : 'neg'}" style="font-size:13px">Profit ${money(profit)}</span>
         </div>
         <table style="margin-top:6px;font-size:13px">
-          <tr><th>Time</th><th>Type</th><th>Party</th><th class="r">Net g</th><th class="r">Rate</th><th class="r">Amount</th></tr>
+          <tr><th>Time</th><th>Type</th><th>Party</th><th class="r">Net g</th><th class="r">Rate / Amount</th></tr>
           ${items.map(e => `
             <tr>
               <td>${new Date(e.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
               <td><span class="badge ${e.type}">${e.type === 'buy' ? 'BUY' : 'SELL'}</span></td>
               <td>${esc(e.party)}</td>
               <td class="r">${Number(e.grams).toFixed(3)}${e.type === 'buy' && e.mudLoss > 0 ? `<div style="font-size:11px;color:var(--muted)">gross ${Number(e.gross).toFixed(3)}</div>` : ''}</td>
-              <td class="r">${money(e.rate)}</td>
-              <td class="r">${money(e.total)}</td>
+              <td class="r"><div>${money(e.rate)}</div><div class="lot-cost">${money(e.total)}</div></td>
             </tr>`).join('')}
         </table>
         <div style="font-size:12px;color:var(--muted);margin-top:4px">
